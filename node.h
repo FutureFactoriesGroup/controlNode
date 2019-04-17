@@ -19,6 +19,8 @@ private:
 
     int timetable[50];
 
+    bool activity;
+
     int counter1;
     int counter2;
 
@@ -34,6 +36,7 @@ public:
     int getAverage();
     int getTimetable(int);
     int getCounter2();
+    bool getActivity();
 
     void printRecord();
     void printTimetable();

@@ -1,22 +1,31 @@
 #include "product.h"
 
+int counter=0;
+
 product::product()
 {
     corner[4]={0};
-//    colour[4]={0};
-//    shape[4]={0};
+    shape[4]={0};
+    stamp=0;
 
     currentLocation=" ";
+    //pastLocations[5]={" "};
 }
 
-void product::setProduct(bool a[4], int b[4], int c[4])
+void product::setProduct(bool a[4], bool b)
 {
     int i;
     for (i=0;i<4;i++){
         corner[i]=a[i];
-        colour[i]=b[i];
-        shape[i]=c[i];
+        stamp=b;
     }
+}
+
+void product::updateLocation(string a)
+{
+    currentLocation=a;
+    //pastLocations[counter]=a;
+    counter++;
 }
 
 
@@ -25,12 +34,7 @@ bool product::getCorner(int a)
     return (corner[a]);
 }
 
-int product::getColour(int a)
+bool product::getStamp()
 {
-    return (colour[a]);
-}
-
-int product::getShape(int a)
-{
-    return (shape[a]);
+    return (stamp);
 }

@@ -19,6 +19,8 @@ node::node()
 
     timetable[50]={0};
 
+    activity=0;
+
     counter1=0;
     counter2=0;
 }
@@ -72,6 +74,10 @@ int node::getTimetable(int a)
     return(timetable[a]);
 }
 
+bool node::getActivity()
+{
+    return(activity);
+}
 
 
 
