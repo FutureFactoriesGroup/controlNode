@@ -30,6 +30,7 @@ def callback(data):
     msgCode= ""
     msgDataLength= ""
     msgData= ""
+    checkSumRF=""
     check=0
     temps=""
     i=0
@@ -106,6 +107,9 @@ def callback(data):
 def rosOut(msg,topic):
 
     pub= rospy.Publisher(topic, String, queue_size=1000)
+
+    if topic=="/transport":
+        topic="/vision"
 
     print ("In topic: ", topic)
     rospy.loginfo(msg)
