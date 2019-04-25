@@ -3,17 +3,16 @@
 import threading as th
 import hashlib
 import rospy
+import time
 
 from std_msgs.msg import String
 
-prdt=None
-rd=0            # 0 if ready, 1 if done
+prdt=""
 checkC=0
 
 class node:
     def __init__(self, ID):
         self.ID=ID
-
 
 
 
@@ -42,29 +41,29 @@ def callback(data):
             msgSource=msgSource+c
         elif i in range(4,7):
             msgCode=msgCode+c
-        elif i==7:
-            msgDataLength=c
-        elif i in range (8, (8+int(msgDataLength))):
+        elif i in range (7,10):
+            msgDataLength=msgDataLength+c
+        elif i in range (10, (10+int(msgDataLength))):
             msgData=msgData+c
         else:
             checkSumRF=checkSumRF+c
         i+=1
 
     msgRF=msgTarget+msgSource+msgCode+msgDataLength+msgData
-    # checkSumG=hashlib.sha256(msgRF.encode('utf-8')).hexdigest()
-    # if checkSumRF!=checkSumG
-    #     return
+    checkSumG=hashlib.sha256(msgRF.encode('utf-8')).hexdigest()
+    if checkSumRF!=checkSumG:
+        return
 
     if msgCode=="006":
         prdt=msgData
         checkC=1
-    elif msgSource=="31" and msgCode=="043" and currentNode=="A1" and rd==0:
+    elif msgSource=="31" and msgCode=="045" and currentNode=="A1":
         checkC=1
-    elif msgSource=="31" and msgCode=="045" and currentNode=="A1" and rd==1:
+    elif msgSource=="31" and msgCode=="045" and (currentNode == "P1" or currentNode=="P2") and pp==1:
         checkC=1
-    elif msgSource=="11" and msgCode=="046" and currentNode=="P1" and rd==1:
+    elif msgSource=="11" and msgCode=="046" and currentNode=="P1":
         checkC=1
-    elif msgSource=="12" and msgCode=="046" and currentNode=="P2" and rd==1:
+    elif msgSource=="12" and msgCode=="046" and currentNode=="P2":
         checkC=1
 
     # while (nodeReady==0 and nodeDone==0):
@@ -104,22 +103,27 @@ def callback(data):
 
 
 
-def rosOut(msg,topic):
+def rosOut(msg,topicOut):
 
-    pub= rospy.Publisher(topic, String, queue_size=1000)
+    if pp==0 and topicOut=="/transport":
+        topicOut="/vision"
 
-    if topic=="/transport":
-        topic="/vision"
+    pub= rospy.Publisher(topicOut, String, queue_size=1000)
+    time.sleep(1)
 
-    print ("In topic: ", topic)
+    print ("In topic: ", topicOut)
     rospy.loginfo(msg)
 
     pub.publish(msg)
 
-    # if (currentNode=="A1"):
-    #     pub= rospy.Publisher("/UI", String, queue_size=1000)
 
 
+
+def rosIn(topicIn):
+    rate=rospy.Rate(5)
+    while checkC==0:
+        sub=rospy.Subscriber(topicIn, String, callback)
+        rate.sleep()
 
 
 
@@ -139,18 +143,23 @@ def calculate(pathCounter):
         currentNode="A1"
         nextNode="MB"
     elif pathCounter==1:
+        previousNode="MB"
         currentNode="A1"
         nextNode="P1"
     elif pathCounter==2:
+        previousNode="A1"
         currentNode="P1"
         nextNode="A1"
     elif pathCounter==3:
+        previousNode="P1"
         currentNode="A1"
         nextNode="P2"
     elif pathCounter==4:
+        previousNode="A1"
         currentNode="P2"
         nextNode="A1"
     elif pathCounter==5:
+        previousNode="P2"
         currentNode="A1"
         nextNode="FB"
 
@@ -158,7 +167,7 @@ def calculate(pathCounter):
 
 
 
-def getMsg(currentNode, nextNode):
+def getMsg(u):
     msg= None
     topic= None
     global prdt
@@ -174,16 +183,29 @@ def getMsg(currentNode, nextNode):
         nNode="81"
 
     if currentNode=="A1":
-        msg="4151018431"+nNode
+        if u=="0":
+            msg="415101800431"+nNode
+        elif u=="pick":
+            msg="41510500011"
+        elif u=="place":
+            msg="41510500010"
         topic="/transport"
     elif currentNode=="P1":
-        msg="11510420"
-        topic="/process"
+        if u=="pick":
+            msg="41510500011"
+            topic="/transport"
+        else:
+            msg="1151042000"
+            topic="/process"
     elif currentNode=="P2":
-        msg="12510420"
-        topic="/process"
+        if u=="pick":
+            msg="41510501001"
+            topic="/transport"
+        else:
+            msg="1251042000"
+            topic="/process"
     elif currentNode=="RFID":
-        msg="91510485"+prdt
+        msg="9151048005"+prdt
         topic="/rfid"
 
     return msg, topic
@@ -193,65 +215,82 @@ def getMsg(currentNode, nextNode):
 
 currentNode=""
 nextNode=""
+previousNode=""
+pp=0
 
 
 rospy.init_node('controlNode', anonymous=True)
+
+
+
 
 nArray= importData()
 
 pathCounter=0
 
 print ("Waiting for product info")
-rate=rospy.Rate(5)
-while checkC==0:
-    sub=rospy.Subscriber("/UI", String, callback)
-    rate.sleep()
+rosIn("/ordered_item")
 
-msg,topic=getMsg("RFID", "0")
+currentNode="RFID"
+msg,topic=getMsg("0")
 checkSum=msg+hashlib.sha256(msg.encode('utf-8')).hexdigest()
 rosOut(checkSum, topic)
 
 
 while pathCounter<6:
+    pp=0
     currentNode, nextNode= calculate(pathCounter)
     print ("currentNode=", currentNode, " nextNode=", nextNode, ": " )
-    msg,topic=getMsg(currentNode, nextNode)
 
-    if currentNode=="A1":
-        rd=0
-        print ("Waiting for ready message from: ", currentNode)
-        check=0
-        checkC=0
 
-        rate=rospy.Rate(5)
-        while checkC==0:
-            sub=rospy.Subscriber(topic, String, callback)
-            rate.sleep()
+    msg,topic=getMsg("0")
+
+    checkSum=msg+hashlib.sha256(msg.encode('utf-8')).hexdigest()
+    rosOut(checkSum, topic)
+
+
+
+    print ("Waiting for done message from node: ", currentNode)
+
+    check=0
+    checkC=0
+    rosIn(topic)
+
+
+    # if currentNode=="A1" and pathCounter>0:
+    #     rd=0
+    #     print ("Waiting for ready message from: ", currentNode)
+    #     check=0
+    #     checkC=0
+    #
+    #     rate=rospy.Rate(5)
+    #     while checkC==0:
+    #         sub=rospy.Subscriber(topic, String, callback)
+    #         rate.sleep()
     #t1=th.Thread(target=goSpin())
 
     #t1.start()
     #if callback==0:
     #    t1.join()
-
-
-
-    checkSum=msg+hashlib.sha256(msg.encode('utf-8')).hexdigest()
-    rosOut(checkSum, topic)
-
-    rd=1
-    print ("Waiting for done message from node: ", currentNode)
-
-    check=0
     checkC=0
 
-
-    while checkC==0:
-        rospy.Subscriber(topic, String, callback)
-        rate.sleep()
+    if (currentNode=="A1" and nextNode=="MB") or ((currentNode=="P1" or currentNode=="P2") and nextNode=="A1"):
+        pp=1
+        msg,topic=getMsg("pick")
+        checkSum=msg+hashlib.sha256(msg.encode('utf-8')).hexdigest()
+        rosOut(checkSum, "/transport")
+        print ("Waiting for transport to pick object")
+        rosIn(topic)
+    elif currentNode=="A1" and (nextNode=="P1" or nextNode=="P2" or nextNode=="FB"):
+        pp=1
+        msg,topic=getMsg("place")
+        checkSum=msg+hashlib.sha256(msg.encode('utf-8')).hexdigest()
+        rosOut(checkSum, "/transport")
+        print ("Waiting for transport to place object")
+        rosIn(topic)
 
 
     pathCounter+=1
-
 
 
 
