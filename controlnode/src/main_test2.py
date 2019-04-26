@@ -15,6 +15,18 @@ class node:
         self.ID=ID
 
 
+def callbackT
+
+    msgR=data.data
+
+
+    msgTarget=msgR[0:2]
+    msgSource=msgR[2:4]
+    msgCode=msgR[4:7]
+    msgDataLength=msgR[7:10]
+    msgData=msgR[10:int(msgDataLength)]
+    checkSum=msgr[int(msgDataLength), int()]
+
 
 
 def callback1(data):
@@ -110,7 +122,7 @@ def callback2(data):
 def rosOut(msg,topicOut):
 
     pub= rospy.Publisher(topicOut, String, queue_size=1000)
-    time.sleep(2)
+    time.sleep(3)
     pub.publish(msg)
 
 
@@ -204,7 +216,7 @@ def getMsg(u):
         else:
             temp=prdt[0]
             temp=temp[0:4]
-            msg="1151042004"+temp
+            msg="11510424"+temp
             topic="/process"
     elif currentNode=="P2":
         if u=="pick":
@@ -240,9 +252,15 @@ previousNode=""
 pp=0
 led=""
 checkC=0
-UItrack=[1,0,0,0,0]
-UIcount=1
 
+
+subT=rospy.Subscriber("/transport", String, callbackT)
+subP=rospy.Subscriber("/process", String, callbackP)
+
+pubT= rospy.Publisher("/transport", String, queue_size=1000)
+pubP= rospy.Publisher("/process", String, queue_size=1000)
+pubR= rospy.Publisher("/rfid", String, queue_size=1000)
+pubT= rospy.Publisher("/order_tracker", String, queue_size=1000)
 
 rospy.init_node('controlNode', anonymous=True)
 
@@ -269,6 +287,7 @@ while 1:
 #    sub=rospy.Subscriber("/ordered_item", String, callback1)
     if prdt:
         led=findLed()
+        print ("led= ", led)
         currentNode="RFID"
         msg,topic=getMsg("0")
         checkSum=msg+hashlib.sha256(msg.encode('utf-8')).hexdigest()
@@ -286,15 +305,6 @@ while 1:
             rosOut(checkSum, topic)
 
 
-            if (currentNode=="A1" and pathCounter==1):
-                UItrack[UIcount]=2
-                UIcount+=1
-            elif  currentNode=="P1" or currentNode=="P2":
-                UItrack[UIcount]=1
-            rosOut(str(UItrack),"/order_tracker")
-
-
-
 
             print ("Waiting for done message from node: ", currentNode)
 
@@ -304,8 +314,6 @@ while 1:
 
             checkC=0
 
-
-            #pick/place
             if (currentNode=="A1" and nextNode=="MB") or ((currentNode=="P1" or currentNode=="P2") and nextNode=="A1"):
                 pp=1
                 msg,topic=getMsg("pick")
@@ -322,8 +330,7 @@ while 1:
                 rosIn(topic)
 
 
-            # go back a bit
-            if (currentNode=="A1" and nextNode=="MB") or currentNode=="P1" or currentNode=="P2":
+            if currentNode=="A1" and (nextNode=="MB" or nextNode=="FB" or nextNode=="P1" or nextNode=="P2"):
                 pp=2
                 msg="3151052000"
                 topic="/transport"
@@ -332,21 +339,10 @@ while 1:
                 rosIn (topic)
 
 
-            if currentNode=="P1" or currentNode=="P2":
-                UItrack[UIcount]=2
-                rosOut(str(UItrack),"/order_tracker")
-                UIcount+=1
-
 
 
             if pathCounter==3 and led=="N":
                 break
-
             pathCounter+=1
-
-
-
-        UItrack[4]=2
-        rosOut(str(UItrack),"/order_tracker")
 
         prdt.pop(0)
