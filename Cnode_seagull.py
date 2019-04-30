@@ -22,6 +22,7 @@ def callbackT(data):
     global back
     global pp
 
+
     msgTarget=msgC[0:2]
     msgSource=msgC[2:4]
     msgCode=msgC[4:7]
@@ -49,6 +50,8 @@ def callbackP(data):
     global checkCNC
     global checkLED
     global prdtCount
+    global trackOrder1
+    global trackOrder2
 
     msgTarget=msgC[0:2]
     msgSource=msgC[2:4]
@@ -69,12 +72,25 @@ def callbackP(data):
         i=CNC.past[-1]
         prdtArray[i].update_status(0)
         print ("Product free to go")
+        if i==0:
+            trackOrder1[2]=2
+            pubOT.publish(str(trackOrder1))
+        if i==1:
+            trackOrder2[2]=2
+            pubOT.publish(str(trackOrder2))
+
     elif msgSource=="61" and msgCode=="046":
         led.change_past(led.state)
         #led.change_state(-1)
         i=led.past[-1]
         prdtArray[i].update_status(0)
         print ("Product free to go")
+        if i==0:
+            trackOrder1[3]=2
+            pubOT.publish(str(trackOrder1))
+        if i==1:
+            trackOrder2[3]=2
+            pubOT.publish(str(trackOrder2))
 
 
 def callbackOI(data):
@@ -247,7 +263,8 @@ finish=0
 pp=0
 back=0
 check=0
-trackOrder=[0,0,0,0,0]
+trackOrder1=[1,0,0,0,0]
+trackOrder2=[2,0,0,0,0]
 
 
 print ("Waiting for product info")
@@ -289,13 +306,18 @@ while 1:
                 prdtArray[i].update_cNode("MB")
 
                 previousNode=MB
-                trackOrder[0]=(i+1)
-                trackOrder[1]=2
-                pubOT.publish(str(trackOrder))
+                print ("its product: ", i)
+                if i==0:
+                    trackOrder1[1]=2
+                    pubOT.publish(str(trackOrder1))
+                if i==1:
+                    trackOrder2[1]=2
+                    pubOT.publish(str(trackOrder2))
 
 
-            print ("Product", i, "FOR CNC")
-            print ((i not in CNC.past),(prdtArray[i].cnc==1),(CNC.state==-1),(prdtArray[i].status==0))
+
+            # print ("Product", i, "FOR CNC")
+            # print ((i not in CNC.past),(prdtArray[i].cnc==1),(CNC.state==-1),(prdtArray[i].status==0))
 
 
 
@@ -311,10 +333,14 @@ while 1:
                 pp=1
                 while checkT==0:
                     continue
-                if previousNode=="led":
-                        trackOrder[0]=(i+1)
-                        trackOrder[3]=2
-                        pubOT.publish(str(trackOrder))
+                # if led.past:
+                #     if led.past[-1]==i:
+                #         if i==0:
+                #             trackOrder1[3]=2
+                #             pubOT.publish(str(trackOrder1))
+                #         if i==1:
+                #             trackOrder2[3]=2
+                #             pubOT.publish(str(trackOrder2))
 
                 checkT=0
                 pp=0
@@ -361,12 +387,15 @@ while 1:
                 print ("CNC state: ", CNC.state)
 
                 previousNode=CNC
-                trackOrder[0]=(i+1)
-                trackOrder[2]=1
-                pubOT.publish(str(trackOrder))
+                if i==0:
+                    trackOrder1[2]=1
+                    pubOT.publish(str(trackOrder1))
+                if i==1:
+                    trackOrder2[2]=1
+                    pubOT.publish(str(trackOrder2))
 
-            print ("Product",i,"To LED:")
-            print ((i not in led.past), (prdtArray[i].led=="Y"), (led.state==-1), (prdtArray[i].status==0))
+            # print ("Product",i,"To LED:")
+            # print ((i not in led.past), (prdtArray[i].led=="Y"), (led.state==-1), (prdtArray[i].status==0))
             if (i not in led.past) and (prdtArray[i].led=="Y") and (led.state==-1) and (prdtArray[i].status==0):
                 print ("GOING TO LED")
 
@@ -386,10 +415,14 @@ while 1:
                 if prdtArray[i].cNode=="CNC":
                     CNC.change_state(-1)
 
-                if previousNode=="CNC":
-                        trackOrder[0]=i
-                        trackOrder[2]=2
-                        pubOT.publish(str(trackOrder))
+                # if CNC.past:
+                #     if CNC.past[-1]==i:
+                #         if i==0:
+                #             trackOrder1[2]=2
+                #             pubOT.publish(str(trackOrder1))
+                #         if i==1:
+                #             trackOrder2[2]=2
+                #             pubOT.publish(str(trackOrder2))
 
                 msg=getMsg(MB,"back",i)
                 pubT.publish(msg)
@@ -428,13 +461,16 @@ while 1:
 
                 previousNode=led
 
-                trackOrder[0]=i
-                trackOrder[3]=1
-                pubOT.publish(str(trackOrder))
+                if i==0:
+                    trackOrder1[3]=1
+                    pubOT.publish(str(trackOrder1))
+                if i==1:
+                    trackOrder2[3]=1
+                    pubOT.publish(str(trackOrder2))
 
-            print ("LED state: ", led.state)
-            print ("Product",i,"To FB:")
-            print ((prdtArray[i].led=="Y"), (i in led.past), (prdtArray[i].cnc==1), (i in CNC.past), (prdtArray[i].led=="Y"), (i in led.past), (prdtArray[i].cnc==0),(prdtArray[i].led=="N"), (i in CNC.past), (prdtArray[i].cnc==1),(prdtArray[i].led=="N"), (prdtArray[i].cnc==0), (prdtArray[i].status==0))
+            # print ("LED state: ", led.state)
+            # print ("Product",i,"To FB:")
+            # print ((prdtArray[i].led=="Y"), (i in led.past), (prdtArray[i].cnc==1), (i in CNC.past), (prdtArray[i].led=="Y"), (i in led.past), (prdtArray[i].cnc==0),(prdtArray[i].led=="N"), (i in CNC.past), (prdtArray[i].cnc==1),(prdtArray[i].led=="N"), (prdtArray[i].cnc==0), (prdtArray[i].status==0))
 
 
             if (((prdtArray[i].led=="Y") and (i in led.past) and (prdtArray[i].cnc==1) and (i in CNC.past)) or ((prdtArray[i].led=="Y") and (i in led.past) and (prdtArray[i].cnc==0)) or ((prdtArray[i].led=="N") and (i in CNC.past) and (prdtArray[i].cnc==1)) or ((prdtArray[i].led=="N") and (prdtArray[i].cnc==0))) and (prdtArray[i].status==0):
@@ -450,6 +486,13 @@ while 1:
 
                 checkT=0
                 pp=0
+
+                if i==0:
+                    trackOrder1=[1,2,2,2,0]
+                    pubOT.publish(str(trackOrder1))
+                if i==1:
+                    trackOrder2=[2,2,2,2,0]
+                    pubOT.publish(str(trackOrder2))
 
                 if prdtArray[i].cNode=="CNC":
                     CNC.change_state(-1)
@@ -492,6 +535,9 @@ while 1:
                 print ("Product number ", i, " is done")
 
 
-                trackOrder[0]=i
-                trackOrder[4]=2
-                pubOT.publish(str(trackOrder))
+                if i==0:
+                    trackOrder1[4]=2
+                    pubOT.publish(str(trackOrder1))
+                if i==1:
+                    trackOrder2[4]=2
+                    pubOT.publish(str(trackOrder2))
